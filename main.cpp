@@ -1,0 +1,125 @@
+//main.cpp
+
+#include <iostream>
+#include "classes.hpp"
+#include <string>
+#include <stdlib.h>
+#include <stdio.h>
+
+extern "C" void gpu_memAlloc(int **a, int **b, int **c, int size);
+extern "C" void gpu_setData(int *dst, int *src, int size);
+extern "C" void gpu_getData(int *src, int *dst, int size);
+extern "C" void gpu_addVectors(int *a_d, int *b_d, int *c_d, int size);
+extern "C" void gpu_memRelease(int *a_d, int *b_d, int *c_d);
+
+using namespace std;
+
+#if 1
+class GpuVectorAddition
+{
+//private:
+public:
+	int *a_h, *b_h, *c_h, *a_d, *b_d, *c_d, size;	// number of array elements
+	//int *a_d, *b_d, *c_d, size;	// number of array elements
+
+	// member functions
+	GpuVectorAddition(int _size);
+
+	void init();
+	void addData();
+	void result();
+
+	~GpuVectorAddition();
+};
+
+GpuVectorAddition::GpuVectorAddition(int _size)
+{
+	size = _size;
+}
+
+GpuVectorAddition::~GpuVectorAddition()
+{
+	delete[] a_h;
+	delete[] b_h;
+	delete[] c_h;
+}
+void GpuVectorAddition::init()
+{
+	a_h = new int[size];
+	b_h = new int[size];
+	c_h = new int[size];
+
+	gpu_memAlloc(&a_d, &b_d, &c_d, size);
+
+	for (int i = 0; i < size; i++)
+	{
+		a_h[i] = i;
+		b_h[i] = (i % 5) + 1;
+		c_h[i] = 0;
+	}
+
+	gpu_setData(a_d, a_h, size);
+	gpu_setData(b_d, b_h, size);
+	gpu_setData(c_d, c_h, size);
+}
+
+void GpuVectorAddition::addData()
+{
+	gpu_addVectors(a_d, b_d, c_d, size);
+}
+
+void GpuVectorAddition::result()
+{
+	gpu_getData(c_h, c_d, size);
+	gpu_getData(b_h, b_d, size);
+
+	for(int i = 0; i < size; i++)
+	{
+		printf("%i: \t %i + %i = %i \n", i, a_h[i], b_h[i], c_h[i]);
+	}
+
+	gpu_memRelease(a_d, b_d, c_d);
+}
+#endif
+
+int main(int argc, char **argv)
+{
+	int n = atoi(argv[1]);
+	//printf("begin..\n");
+	CMain *main_class = new CMain(n);
+
+//	main_class -> CMain(10);
+	main_class -> memAlloc();	// alloc input arrays on host (CPU)
+	main_class -> initialize();	// initialize arrays
+	main_class -> addVectors();	// CPU computation
+
+	// print result
+	cout << "CPU:"<<endl;
+	main_class -> resultPrint();
+	cout << endl;
+
+	// free CPU arrays
+	main_class -> memRelease();
+
+	// GPU computations
+	GpuVectorAddition P = GpuVectorAddition(n);
+	P.init();
+	P.addData();
+	cout << "GPU:"<<endl;
+	P.result();
+
+	delete main_class;
+
+	return 1;
+}
+
+
+
+// nvcc compile works in this way
+/*
+nvcc -x cu -arch=sm_20 -I. -dc main.cpp -o main.o
+nvcc -x cu -arch=sm_20 -I. -dc classes.cpp -o classes.o
+nvcc -x cu -arch=sm_20 -I. -dc cuda_wrapper.cu -o cuda_wrapper.o
+nvcc -arch=sm_20 main.o classes.o cuda_wrapper.o -o app
+
+*/

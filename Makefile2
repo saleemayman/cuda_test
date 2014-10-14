@@ -1,0 +1,173 @@
+################################################################################
+# paths, directories and folders
+################################################################################
+
+CUDAINSTALLPATH	:= /usr/local/cuda
+# CUDAINSTALLPATH	:= /opt/cuda
+
+BINDIR		:= bin
+CUBINDIR	:= cubin
+OBJDIR		:= obj
+PTXDIR		:= ptx
+
+CCLIBDIR		:= 
+CXXLIBDIR		:= 
+CUDABINDIR		:=	$(CUDAINSTALLPATH)/bin
+CUDALIBDIR		:=	-L$(CUDAINSTALLPATH)/lib64
+
+CCINCLUDES		:=	-I$(CUDAINSTALLPATH)/include
+CXXINCLUDES		:=	-I$(CUDAINSTALLPATH)/include
+CUDAINCLUDES	:=	-I$(CUDAINSTALLPATH)/include
+
+CCLIB	:=	-lrt
+CXXLIB	:=	-lrt
+CUDALIB	:=	-lcudadevrt \
+			-lcudart
+
+EXECUTABLE		:= gpu_test
+
+################################################################################
+# source files
+################################################################################
+
+# main file
+MAINFILE	:=	main.cpp
+
+# c/c++ source files (compiled with $(CC))
+CCFILES		:=	classes.cpp 
+
+# c/c++ source files (compiled with $(CXX))
+CXXFILES	:=	
+
+# cuda source files (compiled with $(NVCC))
+CUDAFILES	:=	cuda_wrapper.cu
+				
+
+################################################################################
+# compilers and linkers
+################################################################################
+
+CC				:= gcc
+CXX				:= g++
+# NVCC			:= nvcc
+NVCC			:= $(CUDAINSTALLPATH)/bin/nvcc
+LINKER			:= g++
+# NVCCLINKER	:= nvcc
+NVCCLINKER		:= $(CUDAINSTALLPATH)/bin/nvcc
+
+################################################################################
+# compiler arguments and flags
+################################################################################
+
+CCFLAGS		:=	-O0 \
+				-Wall
+CXXFLAGS	:=	-O0 \
+				-Wall
+
+# arch: specifies the compatibility from source code to PTX stage. Can be a
+#       virtual (compute_*) or real (sm_*) compatibility.
+# code: specifies the compatibility from PTX stage to binary code. Can only be
+#       real (sm_*). Code has to be >= arch.
+# -rdc: -rdc is short for --relocatable-device-code which generates relocatable
+#       device code. This is necessary to generate multiple CUDA object files
+#       which can then be linked together.
+#NVCCFLAGS	:=	-gencode arch=compute_50,code=sm_50 \
+NVCCFLAGS	:=	-arch=sm_50 \
+				-use_fast_math \
+				-lineinfo \
+				--compiler-options -Wall \
+#				-rdc=true \
+				-gencode arch=compute_20,code=sm_20 \
+				-gencode arch=compute_30,code=sm_30 \
+				-gencode arch=compute_35,code=sm_35 \
+				--ptxas-options -v \
+
+################################################################################
+# linker arguments and flags
+################################################################################
+
+LINKERFLAGS		:=	
+
+# -dlink: Necessary linker option to link multiple CUDA object files together.
+NVCCLINKERFLAGS	:=	-arch=sm_50 \
+#					-dlink
+
+################################################################################
+# set up virtual path to enable subfolders for source files
+################################################################################
+
+VPATH 	:=	rng/ \
+			timer/
+
+################################################################################
+# set up object files
+#
+# semantics patsubst(a, b, c): replace b by a in c.
+################################################################################
+
+CCOBJS		:=	$(patsubst %.c,   $(OBJDIR)/%.c.o,   $(notdir $(CCFILES)))
+CXXOBJS		:=	$(patsubst %.cpp, $(OBJDIR)/%.cpp.o, $(notdir $(CXXFILES)))
+CUDAOBJS	:=	$(patsubst %.cu,  $(OBJDIR)/%.cu.o,  $(notdir $(CUDAFILES)))
+
+CCXXOBJS	:=	$(CCOBJS)
+CCXXOBJS	+=	$(CXXOBJS)
+
+OBJS	:=  $(CCOBJS)
+OBJS	+=  $(CXXOBJS)
+OBJS	+=  $(CUDAOBJS)
+
+################################################################################
+# set up link process
+################################################################################
+
+# LINKLINE		:= $(LINKER) $(LINKERFLAGS) $(OBJS) $(OBJDIR)/cuda.cu.o $(OBJDIR)/$(MAINFILE).cu.o -o $(BINDIR)/$(EXECUTABLE) $(CCLIBDIR) $(CXXLIBDIR) $(CUDALIBDIR) $(CCLIB) $(CXXLIB) $(CUDALIB)
+LINKLINE		:= $(LINKER) $(LINKERFLAGS) $(OBJS) $(OBJDIR)/$(MAINFILE).o -o $(BINDIR)/$(EXECUTABLE) $(CCLIBDIR) $(CXXLIBDIR) $(CUDALIBDIR) $(CCLIB) $(CXXLIB) $(CUDALIB)
+NVCCLINKLINE	:= $(NVCCLINKER) $(NVCCLINKERFLAGS) $(CUDAOBJS) -o $(OBJDIR)/cuda.cu.o
+
+################################################################################
+# targets
+################################################################################
+
+# target to compile c files
+$(OBJDIR)/%.c.o: %.c
+	$(CC) $(CCINCLUDES) $(CCFLAGS) -c $< -o $@
+
+# target to compile c++ files
+$(OBJDIR)/%.cpp.o: %.cpp
+	$(CXX) $(CXXINCLUDES) $(CXXFLAGS) -c $< -o $@
+
+# target to compile cuda files
+$(OBJDIR)/%.cu.o: %.cu
+	$(NVCC) $(CUDAINCLUDES) $(NVCCFLAGS) -c $< -o $@
+	
+# misc targets
+makedirectories:
+	mkdir -p $(OBJDIR)
+	mkdir -p $(BINDIR)
+
+clean:
+	rm -f $(OBJDIR)/*
+	rm -f $(BINDIR)/$(EXECUTABLE)
+	rmdir $(OBJDIR)
+	rmdir $(BINDIR)
+	
+# compile targets (results are object files)
+mainobject:
+	@echo '-- Invoking CUDA compiler: Compiling main() source file --'
+	$(NVCC) $(CUDAINCLUDES) $(NVCCFLAGS) -c $(MAINFILE) -o $(OBJDIR)/$(MAINFILE).o
+	@echo '-- End invoking C/C++ compiler --'
+
+# cudaobject:
+#	@echo '-- Invoking CUDA linker: Linking all CUDA objects to one single object --'
+#	$(NVCCLINKLINE)
+#	@echo '-- End invoking CUDA linker --'
+	
+# link targets (results are executables)
+linkgold: makedirectories mainobject $(OBJS) # cudaobject
+	@echo '-- Invoking C/C++ linker: Link C/C++ objects, CUDA objects and single CUDA object --'
+	$(LINKLINE)
+	@echo '-- End invoking C/C++ linker --'
+
+# frontend targets (sould be calles as make option)
+all: linkgold
+	@echo '-- Everything went fine --'
