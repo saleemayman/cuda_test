@@ -43,7 +43,7 @@ CCFILES		:=	classes.cpp
 CXXFILES	:=	
 
 # cuda source files (compiled with $(NVCC))
-CUDAFILES	:=	cuDriverWrapper.hpp vecAdd.cu
+CUDAFILES	:=	cuda_wrapper.cu cuDriverWrapper.hpp vecAdd.cu
 				
 
 ################################################################################
