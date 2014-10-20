@@ -94,57 +94,36 @@ int main(int argc, char **argv)
 	cpu_class -> memAlloc();	// alloc input arrays on host (CPU)
 	cpu_class -> initialize();	// initialize arrays
 	cpu_class -> addVectors();	// CPU computation
-
-	// print result
-	cout << "CPU:"<<endl;
+	cout << "CPU:"<<endl;		// print results
 	cpu_class -> resultPrint();
-	cout << endl;
+	cpu_class -> memRelease();	// free CPU arrays
 
-	// free CPU arrays
-	cpu_class -> memRelease();
-
-	// GPU computations
+	// GPU computations, CUDA Runtime API class
 	GpuVectorAddition P = GpuVectorAddition(n);
 	P.init();
 	P.addData();
-	cout << "GPU:"<<endl;
+	cout << endl << "GPU:"<< endl;
 	P.result();
 
-#if 1
+	// GPU CUDA Driver API wrapper class examṕle
 	DriverAPI *gpu_DAPI_class = new DriverAPI(n);
 
 	gpu_DAPI_class -> getDevice();
 	gpu_DAPI_class -> deviceInfo();
-
 	gpu_DAPI_class -> initCUDA();
-	printf("init done..\n");
+	//printf("init done..\n");
 
 	gpu_DAPI_class -> initHostData();
-	printf("host data initialized..\n");
-
 	gpu_DAPI_class -> setDeviceMemory();
-	printf("GPU memory set..\n");
-
 	gpu_DAPI_class -> setData();
-	printf("GPU data set..\n");
-
 	gpu_DAPI_class -> runKernel();
-	printf("kernel executed..\n");
-
 	gpu_DAPI_class -> getData();
-	printf("copy back results..\n");
-
 	gpu_DAPI_class -> resultPrint();
-
 	gpu_DAPI_class -> releaseDeviceMemory();
-	printf("release device memory..\n");
-
 	gpu_DAPI_class -> finalizeCUDA();
-	printf("free cuda context and memory..\n Alles klar!");
+	printf("free cuda context and memory..\n Alles klar! \n");
 	
 	delete gpu_DAPI_class;
-#endif
-
 	delete cpu_class;
 
 	return 1;

@@ -11,6 +11,8 @@
 #include <drvapi_error_string.h>
 #include <builtin_types.h>
 
+extern "C" __global__ void vecAdd(int *a, int *b, int *c, int size);
+
 using namespace std;
 #define checkCudaErrors(err)  __checkCudaErrors (err, __FILE__, __LINE__)
 inline void __checkCudaErrors( CUresult err, const char *file, const int line )
@@ -182,8 +184,9 @@ public:
 		printf("\t Host arrays de-allocated\n");
 		checkCudaErrors( cuCtxDetach(context) );
 		printf("\t Context dettached\n");
-		/*checkCudaErrors( cuStreamDestroy(stream) );
-		printf("\t Stream destroyed\n");*/
+/*		checkCudaErrors( cuStreamDestroy(stream) );
+		printf("\t Stream destroyed\n");
+*/
 	}
 
 	void releaseDeviceMemory()
@@ -197,20 +200,16 @@ public:
 	{
 		void *args[3] = { &a_d, &b_d, &c_d };
 
-		/*dim3 block 	= dim3(32, 1, 1);
-		dim3 grid 	= dim3((size + block.x - 1) / block.x, 1, 1);*/
+		dim3 block 	= dim3(32, 1, 1);
+		dim3 grid 	= dim3((size + block.x - 1) / block.x, 1, 1);
 
 		// grid for kernel: <<<N, 1>>>
-		//checkCudaErrors(
-		/* cuLaunchKernel(addVector, grid.x, grid.y, grid.z,  // Nx1x1 blocks
+		checkCudaErrors( cuLaunchKernel(vecAdd, grid.x, grid.y, grid.z,  // Nx1x1 blocks
 										block.x, block.y, block.z,            // 1x1x1 threads
-										0, stream, args, 0);	*/	// );
-		checkCudaErrors( cuLaunchKernel(vecAdd, 1, 1, 1,  // Nx1x1 blocks
-								32, 1, 1,            // 1x1x1 threads
-								0, stream, args, 0) );
-		// 2213 Uhr 14.10.2014 Start editing from here
-		// rename to .hpp
-
+										0, stream, args, 0) );
+		//checkCudaErrors( cuLaunchKernel(vecAdd, 2, 1, 1,  // Nx1x1 blocks
+		//						32, 1, 1,            // 1x1x1 threads
+		//						0, stream, args, 0) );
 	}
 };
 
