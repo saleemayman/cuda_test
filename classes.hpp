@@ -8,12 +8,10 @@
 //template <typename T>
 class CMain
 {
-//private:
 public:
 	int *a, *b, *c;
 	int size_h;
 
-//public:
 	// constructor
 	CMain(int _size);
 

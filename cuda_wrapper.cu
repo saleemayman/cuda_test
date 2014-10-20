@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
 #include <string>
-//using namespace string;
+
 using namespace std;
 
 #define CUDA_CHECK cuda_check(__FILE__,__LINE__)
