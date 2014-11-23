@@ -88,22 +88,25 @@ void GpuVectorAddition::result()
 int main(int argc, char **argv)
 {
 	int n = atoi(argv[1]);
+	int temp = atoi(argv[2]);
 	//printf("begin..\n");
 	CMain *cpu_class = new CMain(n);
 
 	cpu_class -> memAlloc();	// alloc input arrays on host (CPU)
 	cpu_class -> initialize();	// initialize arrays
 	cpu_class -> addVectors();	// CPU computation
+	//cpu_class -> argSet();
+	//cpu_class -> argPrint( (*cpu_class).arguments );
 	cout << "CPU:"<<endl;		// print results
 	cpu_class -> resultPrint();
 	cpu_class -> memRelease();	// free CPU arrays
 
-	// GPU computations, CUDA Runtime API class
+/*	// GPU computations, CUDA Runtime API class
 	GpuVectorAddition P = GpuVectorAddition(n);
 	P.init();
 	P.addData();
 	cout << endl << "GPU:"<< endl;
-	P.result();
+	P.result();*/
 
 	// GPU CUDA Driver API wrapper class examṕle
 	DriverAPI *gpu_DAPI_class = new DriverAPI(n);
@@ -111,14 +114,20 @@ int main(int argc, char **argv)
 	gpu_DAPI_class -> getDevice();
 	gpu_DAPI_class -> deviceInfo();
 	gpu_DAPI_class -> initCUDA();
-	//printf("init done..\n");
+	//printf("init done..\n");	
 
 	gpu_DAPI_class -> initHostData();
 	gpu_DAPI_class -> setDeviceMemory();
 	gpu_DAPI_class -> setData();
-	gpu_DAPI_class -> runKernel();
+	gpu_DAPI_class -> setAllArguments(&temp);
+
+/*	printf("main A: [0] [1] [2] [3] [4] %i  %i  %i  %i  %i \n", (*gpu_DAPI_class).kernelArgumentVec[0], 
+			(*gpu_DAPI_class).kernelArgumentVec[1], (*gpu_DAPI_class).kernelArgumentVec[2], 
+			(*gpu_DAPI_class).kernelArgumentVec[3], (*gpu_DAPI_class).kernelArgumentVec[4] );
+*/	
+	gpu_DAPI_class -> runKernel2( (*gpu_DAPI_class).kernelArgumentVec );
 	gpu_DAPI_class -> getData();
-	gpu_DAPI_class -> resultPrint();
+	gpu_DAPI_class -> resultPrint(temp);
 	gpu_DAPI_class -> releaseDeviceMemory();
 	gpu_DAPI_class -> finalizeCUDA();
 	printf("free cuda context and memory..\n Alles klar! \n");

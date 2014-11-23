@@ -1,17 +1,18 @@
 // CUDA driver API wrapper for vector addition
-//#ifndef __DRIVERAPI_H__
-//#define __DRIVERAPI_H__
+#ifndef __DRIVERAPI_H__
+#define __DRIVERAPI_H__
 
 //#include "vecAdd.h"
 #include <iostream>
 #include <stdio.h>
+#include <vector>
 //#include </usr/local/cuda/include/cuda_runtime.h>
 
 #include </usr/local/cuda/include/cuda.h>
 #include </home/ayman/CSE/cuda_test/drvapi_error_string.h>
 #include </home/ayman/CSE/cuda_test/builtin_types.h>
 
-extern "C" __global__ void vecAdd(int *a, int *b, int *c, int size);
+//extern "C" __global__ void vecAdd(float *a, float *b, float *c, int size);
 
 using namespace std;
 #define checkCudaErrors(err)  __checkCudaErrors (err, __FILE__, __LINE__)
@@ -35,19 +36,31 @@ private:
 	CUdevice	device;
 	CUcontext 	context;
 	CUmodule	module;
-	CUfunction 	vecAdd;
+	CUfunction 	kernel;
 	CUstream 	stream;
 
 	CUdeviceptr a_d, b_d, c_d;
 
 	int deviceCount, size;
-	int *a_h, *b_h, *c_h;	// host pointers
+	float *a_h, *b_h, *c_h;	// host pointers
+	char *kernel_name;
+	char *module_file;
 
 public:
+	std::vector<void *> kernelArgumentVec;
+
 	//constructor
 	DriverAPI(int _size)
 	{
 		size = _size;
+		module_file = (char*) "vecAdd.ptx";
+		kernel_name = (char*) "vecAdd";
+
+		// initialize CUDA device
+		if (cuInit(0) != CUDA_SUCCESS)
+		{
+			exit(-1);
+		}
 	}
 
 	// destructor
@@ -58,12 +71,6 @@ public:
 
 	void getDevice()
 	{
-		// initialize
-		if (cuInit(0) != CUDA_SUCCESS)
-		{
-			exit(-1);
-		}
-
 		// get number of available devices
 		//int deviceCount;
 		checkCudaErrors( cuDeviceGetCount(&deviceCount) );
@@ -93,8 +100,8 @@ public:
 
 	void initCUDA()
 	{
-		char *module_file = (char*) "vecAdd.ptx";
-		char *kernel_name = (char*) "vecAdd";
+/*		char *module_file = (char*) "vecAdd.ptx";
+		char *kernel_name = (char*) "vecAdd";*/
 
 		CUresult err = cuInit(0);
 
@@ -117,11 +124,11 @@ public:
 			exit(-1);
 		}
 
-		err = cuModuleGetFunction(&vecAdd, module, kernel_name);	
+		err = cuModuleGetFunction(&kernel, module, kernel_name);	
 		//err = cuModuleGetFunction(&vecAdd, module, "vecAdd");
 		if (err != CUDA_SUCCESS)
 		{
-			fprintf(stderr, "* Error getting kernel function %s\n", "vecAdd");
+			fprintf(stderr, "* Error getting kernel function %s\n", kernel_name);
 			checkCudaErrors( err);
 			checkCudaErrors( cuCtxDetach(context) );
 			exit(-1);
@@ -132,9 +139,9 @@ public:
 
 	void initHostData()
 	{
-		a_h = new int[size];
-		b_h = new int[size];
-		c_h = new int[size];
+		a_h = new float[size];
+		b_h = new float[size];
+		c_h = new float[size];
 
 		// intialize array based on type
 		for (int i = 0; i < size; i++)
@@ -147,30 +154,30 @@ public:
 
 	void setDeviceMemory()
 	{
-		checkCudaErrors( cuMemAlloc(&a_d, sizeof(int) * size) );
-		checkCudaErrors( cuMemAlloc(&b_d, sizeof(int) * size) );
-		checkCudaErrors( cuMemAlloc(&c_d, sizeof(int) * size) );
+		checkCudaErrors( cuMemAlloc(&a_d, sizeof(float) * size) );
+		checkCudaErrors( cuMemAlloc(&b_d, sizeof(float) * size) );
+		checkCudaErrors( cuMemAlloc(&c_d, sizeof(float) * size) );
 	}
 
 	void setData()
 	{
 		// copy arrays to device
-		checkCudaErrors( cuMemcpyHtoD(a_d, a_h, sizeof(int) * size) );
-		checkCudaErrors( cuMemcpyHtoD(b_d, b_h, sizeof(int) * size) );
-		checkCudaErrors( cuMemcpyHtoD(c_d, c_h, sizeof(int) * size) );
+		checkCudaErrors( cuMemcpyHtoD(a_d, a_h, sizeof(float) * size) );
+		checkCudaErrors( cuMemcpyHtoD(b_d, b_h, sizeof(float) * size) );
+		checkCudaErrors( cuMemcpyHtoD(c_d, c_h, sizeof(float) * size) );
 	}
 
 	void getData()
 	{
 		// copy array c_d to host array c_h
-		checkCudaErrors( cuMemcpyDtoH(c_h, c_d, sizeof(int) * size) );
+		checkCudaErrors( cuMemcpyDtoH(c_h, c_d, sizeof(float) * size) );
 	}
 
-	void resultPrint()
+	void resultPrint(int temp)
 	{
 		for(int i = 0; i < size; i++)
 		{
-			printf("%i: \t %i + %i = %i \n", i, a_h[i], b_h[i], c_h[i]);
+			printf("%i: \t %f + %f + %i = %f \n", i, a_h[i], b_h[i], temp, c_h[i]);
 		}
 	}
 
@@ -196,21 +203,69 @@ public:
 		checkCudaErrors( cuMemFree(c_d) );
 	}
 
-	void runKernel()
+	inline void setKernelArg(int index, CUdeviceptr *arg)
 	{
-		void *args[3] = { &a_d, &b_d, &c_d };
+//		kernelArgumentVec.push_back(arg);
+		kernelArgumentVec[index] = arg;
+	}
+
+	inline void setKernelArg(int index, char *arg)
+	{
+//		kernelArgumentVec.push_back(arg);
+		kernelArgumentVec[index] = arg;
+	}
+
+	inline void setKernelArg(int index, int *arg)
+	{
+//		kernelArgumentVec.push_back(arg);
+		kernelArgumentVec[index] = arg;
+	}
+
+	inline void setKernelArg(int index, float *arg)
+	{
+//		kernelArgumentVec.push_back(arg);
+		kernelArgumentVec[index] = arg;
+	}
+
+	void setAllArguments(int *temp)
+	{
+		//int temp = -100;
+
+		// setup the arguments for the cuda kernel
+		kernelArgumentVec.reserve(5);
+
+		setKernelArg(0, temp);
+		setKernelArg(1, &a_d);
+		setKernelArg(2, &b_d);
+		setKernelArg(3, &c_d);
+		setKernelArg(4, &size);
+
+//		printf("--args: [0] [1] [2] [3] [4] %i  %i  %i  %i  %i \n", kernelArgumentVec[0], kernelArgumentVec[1], kernelArgumentVec[2], kernelArgumentVec[3], kernelArgumentVec[4]);
+	}
+
+	void runKernel2(std::vector<void *>& arguments)
+	{
+//		printf("std::vec A: [0] [1] [2] [3] [4] %i  %i  %i  %i  %i \n", arguments[0], arguments[1], arguments[2], arguments[3], arguments[4]);
 
 		dim3 block 	= dim3(32, 1, 1);
 		dim3 grid 	= dim3((size + block.x - 1) / block.x, 1, 1);
 
-		// grid for kernel: <<<N, 1>>>
-		checkCudaErrors( cuLaunchKernel(vecAdd, grid.x, grid.y, grid.z,  // Nx1x1 blocks
-										block.x, block.y, block.z,            // 1x1x1 threads
-										0, stream, args, 0) );
+		// launch the kernel
+		checkCudaErrors( cuLaunchKernel(kernel,
+										grid.x,
+										grid.y,
+										grid.z,  // Nx1x1 blocks
+										block.x,
+										block.y,
+										block.z, // 1x1x1 threads
+										0,
+										stream,
+										&arguments[0],
+										0) );
 		//checkCudaErrors( cuLaunchKernel(vecAdd, 2, 1, 1,  // Nx1x1 blocks
 		//						32, 1, 1,            // 1x1x1 threads
 		//						0, stream, args, 0) );
 	}
 };
 
-//#endif __DRIVERAPI_H__
+#endif	// __DRIVERAPI_H__
