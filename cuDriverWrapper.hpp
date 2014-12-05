@@ -6,7 +6,10 @@
 #include <iostream>
 #include <stdio.h>
 #include <vector>
+#include <string>
 //#include </usr/local/cuda/include/cuda_runtime.h>
+
+#include "common.h"
 
 #include </usr/local/cuda/include/cuda.h>
 #include </home/ayman/CSE/cuda_test/drvapi_error_string.h>
@@ -15,6 +18,7 @@
 //extern "C" __global__ void vecAdd(float *a, float *b, float *c, int size);
 
 using namespace std;
+
 #define checkCudaErrors(err)  __checkCudaErrors (err, __FILE__, __LINE__)
 inline void __checkCudaErrors( CUresult err, const char *file, const int line )
 {
@@ -27,9 +31,6 @@ inline void __checkCudaErrors( CUresult err, const char *file, const int line )
 	}
 }
 
-/*char *module_file = (char*) "vecAdd.ptx";
-char *kernel_name = (char*) "vecAdd";*/
-
 class DriverAPI
 {
 private:
@@ -40,27 +41,29 @@ private:
 	CUstream 	stream;
 
 	CUdeviceptr a_d, b_d, c_d;
+	CUresult err;
 
-	int deviceCount, size;
+	int deviceCount;
+	size_t size;
 	float *a_h, *b_h, *c_h;	// host pointers
-	char *kernel_name;
-	char *module_file;
+	std::string module_file, kernel_name;
+
+//	char *module_file = (char*) "vecAdd.ptx";
+//	char *kernel_name = (char*) "vecAdd";
 
 public:
+	int major, minor, driverVer, devAttr;
 	std::vector<void *> kernelArgumentVec;
 
 	//constructor
-	DriverAPI(int _size)
+	DriverAPI(size_t _size)
 	{
 		size = _size;
-		module_file = (char*) "vecAdd.ptx";
-		kernel_name = (char*) "vecAdd";
+		module_file = "vecAdd.ptx";
+		kernel_name = "vecAdd";
 
-		// initialize CUDA device
-		if (cuInit(0) != CUDA_SUCCESS)
-		{
-			exit(-1);
-		}
+		// initialize CUDA driver API
+		initCUDA();
 	}
 
 	// destructor
@@ -86,7 +89,6 @@ public:
 
 	void deviceInfo()
 	{
-		int major, minor, driverVer, devAttr;
 		char deviceName[16];
 
 		checkCudaErrors( cuDeviceComputeCapability(&major, &minor, device) );
@@ -100,37 +102,58 @@ public:
 
 	void initCUDA()
 	{
-/*		char *module_file = (char*) "vecAdd.ptx";
-		char *kernel_name = (char*) "vecAdd";*/
+		// initialize CUDA device
+		if (cuInit(0) != CUDA_SUCCESS)
+		{
+			exit(-1);
+		}
+	}
 
-		CUresult err = cuInit(0);
+	void initContextModule()
+	{
+		createContext();
+		attachModule(module_file);
+		attachFunction( kernel_name.c_str() );
+	}
 
+	void createContext()
+	{
 		err = cuCtxCreate(&context, 0, device);
+		cout << "context: " << err << endl;
 		if (err != CUDA_SUCCESS)
 		{
-			fprintf(stderr, "* Error initializing the CUDA context.\n");
+			fprintf(stderr, "* Error creating the CUDA context.\n");
 			checkCudaErrors( err);
-			checkCudaErrors( cuCtxDetach(context) );
+			checkCudaErrors( cuCtxDestroy(context) );
 			exit(-1);
 		}
+	}
 
-		err = cuModuleLoad(&module, module_file);
-//		err = cuModuleLoad(&module, "vecAdd.ptx");
+	void attachModule(const std::string &file)	//const char &module_file
+	{
+		moduleMember( file.c_str() );
+	}
+
+	void moduleMember(const char *file)
+	{
+		err = cuModuleLoad(&module, file);	//	err = cuModuleLoad(&module, "vecAdd.ptx");
 		if (err != CUDA_SUCCESS)
 		{
-			fprintf(stderr, "* Error loading the module %s\n", "vecAdd.ptx");
+			fprintf(stderr, "* Error loading the module %s\n", file);
 			checkCudaErrors( err);
-			checkCudaErrors( cuCtxDetach(context) );
+			checkCudaErrors( cuCtxDestroy(context) );
 			exit(-1);
 		}
+	}
 
-		err = cuModuleGetFunction(&kernel, module, kernel_name);	
-		//err = cuModuleGetFunction(&vecAdd, module, "vecAdd");
+	void attachFunction(const char *file)
+	{
+		err = cuModuleGetFunction(&kernel, module, file);	//err = cuModuleGetFunction(&vecAdd, module, "vecAdd");
 		if (err != CUDA_SUCCESS)
 		{
-			fprintf(stderr, "* Error getting kernel function %s\n", kernel_name);
+			fprintf(stderr, "* Error getting kernel function %s\n", file);
 			checkCudaErrors( err);
-			checkCudaErrors( cuCtxDetach(context) );
+			checkCudaErrors( cuCtxDestroy(context) );
 			exit(-1);
 		}
 
@@ -144,7 +167,7 @@ public:
 		c_h = new float[size];
 
 		// intialize array based on type
-		for (int i = 0; i < size; i++)
+		for (size_t i = 0; i < size; i++)
 		{
 			a_h[i] = i;
 			b_h[i] = (i % 5) + 1;
@@ -175,10 +198,23 @@ public:
 
 	void resultPrint(int temp)
 	{
-		for(int i = 0; i < size; i++)
+		printf("c[i]: \n");
+		for(size_t i = 0; i < size; i++)
 		{
-			printf("%i: \t %f + %f + %i = %f \n", i, a_h[i], b_h[i], temp, c_h[i]);
+/*			if (i == c_h[i])
+			{
+				printf("%i", 1);
+			}
+			else
+			{
+				printf("\t %i \t", (int)c_h[i]);
+			}
+*/
+			//printf("%i ", (int)c_h[i]);
+			//printf("%i: \t %f + %f + %i = %f \n", i, a_h[i], b_h[i], temp, c_h[i]);
 		}
+		printf("c[%lu]: %f\n", (size - 1), c_h[size - 1]);
+		printf("\n");
 	}
 
 	void finalizeCUDA()
@@ -189,7 +225,7 @@ public:
 		delete[] c_h;
 
 		printf("\t Host arrays de-allocated\n");
-		checkCudaErrors( cuCtxDetach(context) );
+		checkCudaErrors( cuCtxDestroy(context) );
 		printf("\t Context dettached\n");
 /*		checkCudaErrors( cuStreamDestroy(stream) );
 		printf("\t Stream destroyed\n");
@@ -203,31 +239,36 @@ public:
 		checkCudaErrors( cuMemFree(c_d) );
 	}
 
-	inline void setKernelArg(int index, CUdeviceptr *arg)
+	inline void setKernelArg(int index, CUdeviceptr &arg)
 	{
 //		kernelArgumentVec.push_back(arg);
-		kernelArgumentVec[index] = arg;
+		kernelArgumentVec[index] = &arg;
 	}
 
-	inline void setKernelArg(int index, char *arg)
+	inline void setKernelArg(int index, char &arg)
 	{
 //		kernelArgumentVec.push_back(arg);
-		kernelArgumentVec[index] = arg;
+		kernelArgumentVec[index] = &arg;
 	}
 
-	inline void setKernelArg(int index, int *arg)
+	inline void setKernelArg(int index, int &arg)
 	{
 //		kernelArgumentVec.push_back(arg);
-		kernelArgumentVec[index] = arg;
+		kernelArgumentVec[index] = &arg;
 	}
 
-	inline void setKernelArg(int index, float *arg)
+	inline void setKernelArg(int index, float &arg)
 	{
 //		kernelArgumentVec.push_back(arg);
-		kernelArgumentVec[index] = arg;
+		kernelArgumentVec[index] = &arg;
+	}
+	inline void setKernelArg(int index, size_t &arg)
+	{
+//		kernelArgumentVec.push_back(arg);
+		kernelArgumentVec[index] = &arg;
 	}
 
-	void setAllArguments(int *temp)
+	void setAllArguments(int &temp)
 	{
 		//int temp = -100;
 
@@ -235,21 +276,95 @@ public:
 		kernelArgumentVec.reserve(5);
 
 		setKernelArg(0, temp);
-		setKernelArg(1, &a_d);
-		setKernelArg(2, &b_d);
-		setKernelArg(3, &c_d);
-		setKernelArg(4, &size);
+		setKernelArg(1, a_d);
+		setKernelArg(2, b_d);
+		setKernelArg(3, c_d);
+		setKernelArg(4, size);
 
 //		printf("--args: [0] [1] [2] [3] [4] %i  %i  %i  %i  %i \n", kernelArgumentVec[0], kernelArgumentVec[1], kernelArgumentVec[2], kernelArgumentVec[3], kernelArgumentVec[4]);
 	}
 
-	void runKernel2(std::vector<void *>& arguments)
+	void setGridAndBlockSize(	dim3 &grid, dim3 &block, unsigned int work_dim,
+								const int grid_size_x, const size_t total_elems, 
+								size_t *local_work_size, size_t *global_work_size
+	)
 	{
-//		printf("std::vec A: [0] [1] [2] [3] [4] %i  %i  %i  %i  %i \n", arguments[0], arguments[1], arguments[2], arguments[3], arguments[4]);
+		size_t threads_per_block;
 
-		dim3 block 	= dim3(32, 1, 1);
-		dim3 grid 	= dim3((size + block.x - 1) / block.x, 1, 1);
+		// if no work-group size specified set it to default defined in lbm_defaults.h
+		if (local_work_size == NULL)
+		{
+			if (work_dim == 1)
+			{
+				block = dim3(LOCAL_WORK_GROUP_SIZE, 1 ,1);
+				global_work_size[0] = total_elems;
+				
+				grid = dim3((total_elems + block.x - 1)/block.x, 1, 1);
+			}
+			else if(work_dim == 2)
+			{
+				block = dim3(LOCAL_WORK_GROUP_SIZE/2, 2, 1);
 
+				global_work_size[0] = grid_size_x * LOCAL_WORK_GROUP_SIZE;
+				global_work_size[1] = total_elems/global_work_size[0];
+
+				grid = dim3(grid_size_x, 
+							(total_elems + global_work_size[0] - 1)/global_work_size[0], 1);
+			}
+			else
+			{
+				block = dim3(LOCAL_WORK_GROUP_SIZE/4, 2 ,2);
+				
+				global_work_size[0] = grid_size_x * LOCAL_WORK_GROUP_SIZE;
+				global_work_size[1] = total_elems/global_work_size[0];
+				global_work_size[2] = 1;
+
+				grid = dim3(grid_size_x, 
+							(total_elems + global_work_size[0] - 1)/global_work_size[0], 1);
+			}
+		}
+		else
+		{
+			block = dim3(local_work_size[0], local_work_size[1], local_work_size[2]);
+			threads_per_block = block.x * block.y * block.z;
+
+			if (work_dim == 1)
+			{
+				global_work_size[0] = total_elems;
+				grid = dim3((total_elems + threads_per_block - 1)/threads_per_block, 1, 1);
+			}
+			else if(work_dim == 2)
+			{
+				global_work_size[0] = grid_size_x * threads_per_block;
+				global_work_size[1] = total_elems/global_work_size[0];
+
+				grid = dim3(grid_size_x, 
+							(total_elems + global_work_size[0] - 1)/global_work_size[0], 1);
+			}
+			else
+			{
+				global_work_size[0] = grid_size_x * threads_per_block;
+				global_work_size[1] = total_elems/global_work_size[0];
+				global_work_size[2] = 1;
+
+				grid = dim3(grid_size_x, 
+							(total_elems + global_work_size[0] - 1)/global_work_size[0], 1);
+			}
+		}
+	}
+
+	void runKernel2(unsigned int work_dim, size_t *local_work_size, 
+					size_t *global_work_size, const int grid_size_x,
+					std::vector<void *>& arguments
+	)
+	{
+		dim3 block, grid;// 	= dim3(32, 1, 1);
+
+		setGridAndBlockSize(grid, block, work_dim, grid_size_x, size, local_work_size, global_work_size);
+
+		/*grid = dim3(4, 4, 1);
+		block = dim3(32, 32, 1);*/
+		printf("grid: [%d %d %d], block: [%d %d %d] \n", grid.x, grid.y, grid.z, block.x, block.y, block.z);
 		// launch the kernel
 		checkCudaErrors( cuLaunchKernel(kernel,
 										grid.x,
@@ -262,9 +377,6 @@ public:
 										stream,
 										&arguments[0],
 										0) );
-		//checkCudaErrors( cuLaunchKernel(vecAdd, 2, 1, 1,  // Nx1x1 blocks
-		//						32, 1, 1,            // 1x1x1 threads
-		//						0, stream, args, 0) );
 	}
 };
 

@@ -37,7 +37,7 @@ EXECUTABLE		:= gpu_test
 MAINFILE	:=	main.cpp
 
 # c/c++ source files (compiled with $(CC))
-CCFILES		:=	classes.hpp 
+CCFILES		:=	classes.hpp CudaCompile.hpp
 
 # c/c++ source files (compiled with $(CXX))
 CXXFILES	:=	

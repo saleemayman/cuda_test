@@ -4,8 +4,11 @@
 #include <string>
 #include <stdlib.h>
 #include <stdio.h>
+#include <cmath>
 
+#include "common.h"
 #include "classes.hpp"
+#include "CudaCompile.hpp"
 #include "cuDriverWrapper.hpp"
 
 using namespace std;
@@ -87,10 +90,19 @@ void GpuVectorAddition::result()
 
 int main(int argc, char **argv)
 {
-	int n = atoi(argv[1]);
-	int temp = atoi(argv[2]);
-	//printf("begin..\n");
-	CMain *cpu_class = new CMain(n);
+	size_t elems = atoi(argv[1]);
+	int grid_x = atoi(argv[2]);
+	int temp = atoi(argv[3]);
+	unsigned int dim = atoi(argv[4]);
+	char *kernelName = argv[5];
+
+/*	int n = 512;//atoi(argv[1]);
+	int temp = atoi(argv[1]);
+	unsigned int dim = atoi(argv[2]);	///< dimnesion must be greater than zero	*/
+
+	// CPU computation
+	CProgram cCompileCuda(kernelName);
+	CMain *cpu_class = new CMain(elems);
 
 	cpu_class -> memAlloc();	// alloc input arrays on host (CPU)
 	cpu_class -> initialize();	// initialize arrays
@@ -108,24 +120,32 @@ int main(int argc, char **argv)
 	cout << endl << "GPU:"<< endl;
 	P.result();*/
 
+	// Compile cuda source kernel
+	//cCompileCuda.CProgram(kernelName);
+
+
 	// GPU CUDA Driver API wrapper class examṕle
-	DriverAPI *gpu_DAPI_class = new DriverAPI(n);
+	DriverAPI *gpu_DAPI_class = new DriverAPI(elems);
+	size_t *globalSize = new size_t(dim);
+	size_t *localSize = new size_t(3);
+
+	localSize[0] = 32;
+	localSize[1] = 32;
+	localSize[2] = 1;
 
 	gpu_DAPI_class -> getDevice();
 	gpu_DAPI_class -> deviceInfo();
-	gpu_DAPI_class -> initCUDA();
-	//printf("init done..\n");	
 
+	// compile cuda kernel to ptx file
+	cCompileCuda.createCompileCommand((*gpu_DAPI_class).major);
+
+	gpu_DAPI_class -> initCUDA();
+	gpu_DAPI_class -> initContextModule();
 	gpu_DAPI_class -> initHostData();
 	gpu_DAPI_class -> setDeviceMemory();
 	gpu_DAPI_class -> setData();
-	gpu_DAPI_class -> setAllArguments(&temp);
-
-/*	printf("main A: [0] [1] [2] [3] [4] %i  %i  %i  %i  %i \n", (*gpu_DAPI_class).kernelArgumentVec[0], 
-			(*gpu_DAPI_class).kernelArgumentVec[1], (*gpu_DAPI_class).kernelArgumentVec[2], 
-			(*gpu_DAPI_class).kernelArgumentVec[3], (*gpu_DAPI_class).kernelArgumentVec[4] );
-*/	
-	gpu_DAPI_class -> runKernel2( (*gpu_DAPI_class).kernelArgumentVec );
+	gpu_DAPI_class -> setAllArguments(temp);
+	gpu_DAPI_class -> runKernel2(dim, localSize, globalSize, grid_x, (*gpu_DAPI_class).kernelArgumentVec );
 	gpu_DAPI_class -> getData();
 	gpu_DAPI_class -> resultPrint(temp);
 	gpu_DAPI_class -> releaseDeviceMemory();
@@ -134,6 +154,12 @@ int main(int argc, char **argv)
 	
 	delete gpu_DAPI_class;
 	delete cpu_class;
+	delete globalSize;
+	delete localSize;
+
+	//int ret_val = system("gedit &");
+
+	//printf("return val: %i\n", ret_val);
 
 	return 1;
 }

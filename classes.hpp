@@ -10,13 +10,13 @@
 class CMain
 {
 public:
-	int *a, *b, *c;
-	int size_h;
+	long int *a, *b, *c;
+	size_t size_h;
 
 	std::vector<void *> arguments;
 
 	// constructor
-	CMain(int _size)
+	CMain(size_t _size)
 	{
 		size_h = _size;
 	}
@@ -29,7 +29,7 @@ public:
 	void initialize()
 	{
 		// intialize array based on type
-		for (int i = 0; i < size_h; i++)
+		for (size_t	i = 0; i < size_h; i++)
 		{
 			a[i] = i;
 			b[i] = (i % 5) + 1;
@@ -39,7 +39,7 @@ public:
 
 	void addVectors()
 	{
-		for (int i = 0; i < size_h; i++)
+		for (size_t i = 0; i < size_h; i++)
 		{
 			c[i] = a[i] + b[i];
 		}
@@ -47,17 +47,18 @@ public:
 
 	void resultPrint()
 	{
-		for(int i = 0; i < size_h; i++)
+		for(size_t i = 0; i < size_h; i++)
 		{
-			printf("%i: \t %i + %i = %i \n", i, a[i], b[i], c[i]);
+			//printf("%i: \t %i + %i = %i \n", i, a[i], b[i], c[i]);
 		}
+		printf("c[%lu]: %lu\n", (size_h - 1), c[size_h - 1]);
 	}
 
 	void memAlloc()
 	{
-		a = new int[size_h];
-		b = new int[size_h];
-		c = new int[size_h];
+		a = new long int[size_h];
+		b = new long int[size_h];
+		c = new long int[size_h];
 	}
 
 	void memRelease()
@@ -66,46 +67,6 @@ public:
 		delete[] b;
 		delete[] c;
 	}
-
-// ************** T E S T
-	inline void setKernelArg(int index, char *arg)
-	{
-//		arguments.push_back(arg);
-		arguments[index] = arg;
-	}
-
-	inline void setKernelArg(int index, int *arg)
-	{
-//		arguments.push_back(arg);
-		arguments[index] = arg;
-	}
-
-	inline void setKernelArg(int index, float *arg)
-	{
-//		arguments.push_back(arg);
-		arguments[index] = arg;
-	}
-
-	inline void argSet()
-	{
-		arguments.reserve(5);
-
-		setKernelArg(0, a);
-		setKernelArg(1, b);
-		setKernelArg(2, c);
-		setKernelArg(3, &size_h);
-
-		//printf("--args[0..3]  %i  %i  %i  %i \n", arguments[0], arguments[1], arguments[2], arguments[3] );
-	}
-
-	inline void argPrint(const std::vector<void *>& args)
-	{
-		//printf("argsPrint[0..3]  %i  %i  %i  %i \n", args[0], args[1], args[2], args[3] );
-	}
-
-// ************* E N D 	T E S T
-
-
 };
 
 
