@@ -48,6 +48,11 @@ public:
 			command_string_stream << kernelMaxRegisters;
 		}
 
+		command_string_stream << " -D DEFAULTS=0";
+		command_string_stream << " -D DOMAIN_CELLS_X=5";
+		command_string_stream << " -D DOMAIN_CELLS_Y=1";
+		//command_string_stream << " -D DATA_TYPE=1";
+		command_string_stream << " -D TYPE_FLOAT=1";
 		command_string_stream << " -arch=sm_";
 		command_string_stream << compute_capability;
 		command_string_stream << "0 -m64 -I. -dc ";

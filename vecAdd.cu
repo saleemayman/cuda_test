@@ -1,5 +1,6 @@
+
 #include </usr/local/cuda/include/cuda.h>
-//#include "vecAdd.h"
+#include "lbm_header.h"
 
 extern "C" __global__ void vecAdd(int temp, float *a, float *b, float *c, size_t size)
 {
@@ -12,7 +13,8 @@ extern "C" __global__ void vecAdd(int temp, float *a, float *b, float *c, size_t
 
 	if(idx < size)
 	{
-		c[idx] = (float)temp + a[idx] + b[idx];
-		c[idx] = (float)idx;
+		c[idx] = a[idx] + b[idx];
+		//c[idx] = (T)TEMP1 + (T)TEMP2 + a[idx] + b[idx];
+		c[idx] = (T)(DOMAIN_CELLS + DOMAIN_CELLS_X + DOMAIN_CELLS_Y);
 	}
 }

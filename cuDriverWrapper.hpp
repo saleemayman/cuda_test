@@ -211,10 +211,10 @@ public:
 			}
 */
 			//printf("%i ", (int)c_h[i]);
-			//printf("%i: \t %f + %f + %i = %f \n", i, a_h[i], b_h[i], temp, c_h[i]);
+			printf("%lu: \t %f + %f + %i = %f \n", i, a_h[i], b_h[i], temp, c_h[i]);
 		}
-		printf("c[%lu]: %f\n", (size - 1), c_h[size - 1]);
-		printf("\n");
+//		printf("c[%lu]: %f\n", (size - 1), c_h[size - 1]);
+//		printf("\n");
 	}
 
 	void finalizeCUDA()
