@@ -11,10 +11,18 @@ extern "C" __global__ void vecAdd(int temp, float *a, float *b, float *c, size_t
 	int idx_xy = idx_y * (blockDim.x * gridDim.x) + idx_x;
 	int idx = idx_z * (blockDim.x * gridDim.x + blockDim.y * gridDim.y) + idx_xy;
 
+	// try shared memory allocation as per lbm_beta.cu
+	__shared__ T dd_buf[1][LOCAL_WORK_GROUP_SIZE];
+	extern __shared__ T *dd_buf_lid;
+
+
 	if(idx < size)
 	{
-		c[idx] = a[idx] + b[idx];
-		//c[idx] = (T)TEMP1 + (T)TEMP2 + a[idx] + b[idx];
-		c[idx] = (T)(DOMAIN_CELLS + DOMAIN_CELLS_X + DOMAIN_CELLS_Y);
+		dd_buf[1][idx] = a[idx];
+		dd_buf_lid = &dd_buf[1][idx];
+
+		//c[idx] = a[idx] + b[idx];
+		c[idx] = *dd_buf_lid;
+		//c[idx] = (T)(DOMAIN_CELLS + DOMAIN_CELLS_X + DOMAIN_CELLS_Y);
 	}
 }

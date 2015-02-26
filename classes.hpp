@@ -49,7 +49,7 @@ public:
 	{
 		for(size_t i = 0; i < size_h; i++)
 		{
-			//printf("%i: \t %i + %i = %i \n", i, a[i], b[i], c[i]);
+			printf("%i: \t %i + %i = %i \n", i, a[i], b[i], c[i]);
 		}
 		printf("c[%lu]: %lu\n", (size_h - 1), c[size_h - 1]);
 	}

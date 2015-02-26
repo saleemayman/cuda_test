@@ -48,22 +48,30 @@ public:
 			command_string_stream << kernelMaxRegisters;
 		}
 
-		command_string_stream << " -D DEFAULTS=0";
-		command_string_stream << " -D DOMAIN_CELLS_X=5";
-		command_string_stream << " -D DOMAIN_CELLS_Y=1";
+		command_string_stream << " ";
+		command_string_stream << "-D DEFAULTS=0 ";
+		command_string_stream << "-D DOMAIN_CELLS_X=5 ";
+		command_string_stream << "-D DOMAIN_CELLS_Y=1 ";
+		command_string_stream << "-D LOCAL_WORK_GROUP_SIZE=16 ";
 		//command_string_stream << " -D DATA_TYPE=1";
-		command_string_stream << " -D TYPE_FLOAT=1";
-		command_string_stream << " -arch=sm_";
+		command_string_stream << "-D TYPE_FLOAT=1 ";
+		command_string_stream << "-arch=sm_";
 		command_string_stream << compute_capability;
 		command_string_stream << "0 -m64 -I. -dc ";
 		command_string_stream << file_name;
 		command_string_stream << ".cu -o ";
 		command_string_stream << file_name;
-		command_string_stream << ".o";
+		command_string_stream << ".o ";
 
 		command = command_string_stream.str();
 		
 		executeCommand(command.c_str(), file_name);
+
+		// clear the contents of stringstream
+/*		command_string_stream.str(std::string());
+		command_string_stream << "echo Hello World!";
+		std::cout << "Testing Compile command --> " << command_string_stream.str() << std::endl;
+		*/
 	}
 
 	inline void executeCommand(	const std::string &command, 

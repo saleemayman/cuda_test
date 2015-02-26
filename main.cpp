@@ -129,6 +129,7 @@ int main(int argc, char **argv)
 	size_t *globalSize = new size_t(dim);
 	size_t *localSize = new size_t(3);
 
+	// set local grid size in 3D
 	localSize[0] = 32;
 	localSize[1] = 32;
 	localSize[2] = 1;
