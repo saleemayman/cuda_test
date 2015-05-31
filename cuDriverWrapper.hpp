@@ -12,9 +12,9 @@
 
 #include "common.h"
 
-#include </usr/local/cuda/include/cuda.h>
-#include </home/ayman/CSE/cuda_test/drvapi_error_string.h>
-#include </home/ayman/CSE/cuda_test/builtin_types.h>
+#include "cuda.h"
+#include "drvapi_error_string.h"
+#include "builtin_types.h"
 
 //extern "C" __global__ void vecAdd(float *a, float *b, float *c, int size);
 
