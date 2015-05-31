@@ -6,163 +6,145 @@
 #include <stdio.h>
 #include <cmath>
 
+#include <mpi.h>
+
 #include "common.h"
+// #include "lbm_header.h"
 #include "classes.hpp"
 #include "CudaCompile.hpp"
 #include "cuDriverWrapper.hpp"
 
+
 using namespace std;
 
-//#include </usr/local/cuda/include/cuda_runtime.h>
-//#include </usr/local/cuda/include/cuda.h>
-//#include "vecAdd.h"
+// extern "C" void gpu_memAlloc(int **a, int **b, int **c, int size);
+// extern "C" void gpu_setData(int *dst, int *src, int size);
+// extern "C" void gpu_getData(int *src, int *dst, int size);
+// extern "C" void gpu_addVectors(int *a_d, int *b_d, int *c_d, int size);
+// extern "C" void gpu_memRelease(int *a_d, int *b_d, int *c_d);
 
-extern "C" void gpu_memAlloc(int **a, int **b, int **c, int size);
-extern "C" void gpu_setData(int *dst, int *src, int size);
-extern "C" void gpu_getData(int *src, int *dst, int size);
-extern "C" void gpu_addVectors(int *a_d, int *b_d, int *c_d, int size);
-extern "C" void gpu_memRelease(int *a_d, int *b_d, int *c_d);
 
-class GpuVectorAddition
+#define DOMAIN_CELLS (13)
+
+inline int DOMAIN_WRAP(size_t A, bool isPowTwo)
 {
-//private:
-public:
-	int *a_h, *b_h, *c_h, *a_d, *b_d, *c_d, size;	// number of array elements
-
-	// member functions
-	GpuVectorAddition(int _size);
-
-	void init();
-	void addData();
-	void result();
-
-	~GpuVectorAddition();
-};
-
-GpuVectorAddition::GpuVectorAddition(int _size)
-{
-	size = _size;
+	// printf("PowTwo: %i, notPowTwo: %i\n", isPowTwo * (A & (DOMAIN_CELLS-1)), (!isPowTwo) * (A % DOMAIN_CELLS) );
+	printf("!isPowTwo: %i, is not Power of two: %i\n", (int)!isPowTwo, (int)!isPowTwo*(A % DOMAIN_CELLS));
+	printf("isPowTwo: %i, is Power of two: %i\n", (int)isPowTwo, (int)isPowTwo*(A & (DOMAIN_CELLS-1)));
+	printf("return: %i\n", (isPowTwo * (A & (DOMAIN_CELLS-1)) + (!isPowTwo) * (A % DOMAIN_CELLS)) );
+	return ( isPowTwo * (A & (DOMAIN_CELLS-1)) + (!isPowTwo) * (A % DOMAIN_CELLS) );
 }
 
-GpuVectorAddition::~GpuVectorAddition()
+bool isDomainPowerOfTwo(size_t x)
 {
-	delete[] a_h;
-	delete[] b_h;
-	delete[] c_h;
-}
-void GpuVectorAddition::init()
-{
-	a_h = new int[size];
-	b_h = new int[size];
-	c_h = new int[size];
-
-	gpu_memAlloc(&a_d, &b_d, &c_d, size);
-
-	for (int i = 0; i < size; i++)
-	{
-		a_h[i] = i;
-		b_h[i] = (i % 5) + 1;
-		c_h[i] = 0;
-	}
-
-	gpu_setData(a_d, a_h, size);
-	gpu_setData(b_d, b_h, size);
-	gpu_setData(c_d, c_h, size);
-}
-
-void GpuVectorAddition::addData()
-{
-	gpu_addVectors(a_d, b_d, c_d, size);
-}
-
-void GpuVectorAddition::result()
-{
-	gpu_getData(c_h, c_d, size);
-	gpu_getData(b_h, b_d, size);
-
-	for(int i = 0; i < size; i++)
-	{
-		printf("%i: \t %i + %i = %i \n", i, a_h[i], b_h[i], c_h[i]);
-	}
-
-	gpu_memRelease(a_d, b_d, c_d);
+    return ( (x == (1<<0)) || (x == (1<<1)) || (x == (1<<2)) || (x == (1<<3)) || (x == (1<<4)) ||
+             (x == (1<<5)) || (x == (1<<6)) || (x == (1<<7)) || (x == (1<<8)) || (x == (1<<9)) || 
+             (x == (1<<10)) || (x == (1<<11)) || (x == (1<<12)) || (x == (1<<13)) || (x == (1<<14)) ||
+             (x == (1<<15)) || (x == (1<<16)) || (x == (1<<17)) || (x == (1<<18)) || (x == (1<<19)) ||
+             (x == (1<<20)) || (x == (1<<21)) || (x == (1<<22)) || (x == (1<<23)) || (x == (1<<24)) ||
+             (x == (1<<25)) || (x == (1<<26)) || (x == (1<<27)) || (x == (1<<28)) || (x == (1<<29)) || 
+             (x == (1<<30)) || (x == (1<<31)) );
 }
 
 int main(int argc, char **argv)
 {
-	size_t elems = atoi(argv[1]);
+	int myRank, numProcs;
+	const size_t elems = atoi(argv[1]);
 	int grid_x = atoi(argv[2]);
 	int temp = atoi(argv[3]);
 	unsigned int dim = atoi(argv[4]);
 	char *kernelName = argv[5];
 
-/*	int n = 512;//atoi(argv[1]);
-	int temp = atoi(argv[1]);
-	unsigned int dim = atoi(argv[2]);	///< dimnesion must be greater than zero	*/
+	// MPI initialization functions
+	MPI_Init(&argc, &argv);    /// Start MPI
+	MPI_Comm_rank(MPI_COMM_WORLD, &myRank);    /// get current process id
+	MPI_Comm_size(MPI_COMM_WORLD, &numProcs);    /// get number of processes
 
-	// CPU computation
-	CProgram cCompileCuda(kernelName);
-	CMain *cpu_class = new CMain(elems);
+	if (1)//myRank == 0)
+	{
+		// CPU computation
+		CProgram cCompileCuda(kernelName);
+		CMain *cpu_class = new CMain(elems);
 
-	cpu_class -> memAlloc();	// alloc input arrays on host (CPU)
-	cpu_class -> initialize();	// initialize arrays
-	cpu_class -> addVectors();	// CPU computation
-	//cpu_class -> argSet();
-	//cpu_class -> argPrint( (*cpu_class).arguments );
-	cout << "CPU:"<<endl;		// print results
-	cpu_class -> resultPrint();
-	cpu_class -> memRelease();	// free CPU arrays
+		cpu_class -> memAlloc();	// alloc input arrays on host (CPU)
+		cpu_class -> initialize();	// initialize arrays
+		cpu_class -> addVectors();	// CPU computation
+		//cpu_class -> argSet();
+		//cpu_class -> argPrint( (*cpu_class).arguments );
+		cout << "CPU:"<<endl;		// print results
+		
+		if (myRank == 0)
+		{
+			cpu_class -> resultPrint();
+		}
 
-/*	// GPU computations, CUDA Runtime API class
-	GpuVectorAddition P = GpuVectorAddition(n);
-	P.init();
-	P.addData();
-	cout << endl << "GPU:"<< endl;
-	P.result();*/
+		cpu_class -> memRelease();	// free CPU arrays
 
-	// Compile cuda source kernel
-	//cCompileCuda.CProgram(kernelName);
+	/*	// GPU computations, CUDA Runtime API class
+		GpuVectorAddition P = GpuVectorAddition(n);
+		P.init();
+		P.addData();
+		cout << endl << "GPU:"<< endl;
+		P.result();*/
+
+		// Compile cuda source kernel
+		//cCompileCuda.CProgram(kernelName);
 
 
-	// GPU CUDA Driver API wrapper class examṕle
-	DriverAPI *gpu_DAPI_class = new DriverAPI(elems);
-	size_t *globalSize = new size_t(dim);
-	size_t *localSize = new size_t(3);
+		// GPU CUDA Driver API wrapper class examṕle
+		DriverAPI *gpu_DAPI_class = new DriverAPI(elems);
+		// size_t *globalSize = new size_t(dim);
+		// size_t *localSize = new size_t(3);
 
-	// set local grid size in 3D
-	localSize[0] = 32;
-	localSize[1] = 32;
-	localSize[2] = 1;
+		gpu_DAPI_class -> getDevice();
+		gpu_DAPI_class -> deviceInfo();
 
-	gpu_DAPI_class -> getDevice();
-	gpu_DAPI_class -> deviceInfo();
+		// compile cuda kernel to ptx file
+		// if (myRank == 0)
+		// {
+		// 	printf("CUDA source file compile only by rank= %i \n", myRank);
 
-	// compile cuda kernel to ptx file
-	cCompileCuda.createCompileCommand((*gpu_DAPI_class).major);
+		// 	cCompileCuda.createCompileCommand((*gpu_DAPI_class).major);		
+		// }
+		// MPI_Barrier(MPI_COMM_WORLD);
 
-	gpu_DAPI_class -> initCUDA();
-	gpu_DAPI_class -> initContextModule();
-	gpu_DAPI_class -> initHostData();
-	gpu_DAPI_class -> setDeviceMemory();
-	gpu_DAPI_class -> setData();
-	gpu_DAPI_class -> setAllArguments(temp);
-	gpu_DAPI_class -> runKernel2(dim, localSize, globalSize, grid_x, (*gpu_DAPI_class).kernelArgumentVec );
-	gpu_DAPI_class -> getData();
-	gpu_DAPI_class -> resultPrint(temp);
-	gpu_DAPI_class -> releaseDeviceMemory();
-	gpu_DAPI_class -> finalizeCUDA();
-	printf("free cuda context and memory..\n Alles klar! \n");
+		if (myRank == 0)
+		{
+			cCompileCuda.createCompileCommand((*gpu_DAPI_class).major);		
+		}
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		gpu_DAPI_class -> initCUDA();
+		gpu_DAPI_class -> initContextModule();
+		gpu_DAPI_class -> initHostData();
+		gpu_DAPI_class -> setDeviceMemory();
+		gpu_DAPI_class -> setData();
+		gpu_DAPI_class -> setAllArguments(temp);
+		gpu_DAPI_class -> runKernel2(dim, elems, (*gpu_DAPI_class).kernelArgumentVec );
+		gpu_DAPI_class -> finish();
+		gpu_DAPI_class -> getData();
+		gpu_DAPI_class -> resultPrint(temp);
+		gpu_DAPI_class -> releaseDeviceMemory();
+		gpu_DAPI_class -> finalizeCUDA();
+		printf("free cuda context and memory..\n Alles klar! \n");
+		
+		delete gpu_DAPI_class;
+		delete cpu_class;
+		// delete globalSize;
+		// delete localSize;
+	}
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	printf("Rank: %i,\n", myRank);
+
+	MPI_Finalize();
+
+	int A = temp;
+	bool isPowOfTwo = isDomainPowerOfTwo(DOMAIN_CELLS);
+	int test_tmp = DOMAIN_WRAP(A, isPowOfTwo);
+	printf("test_tmp: %i\nisPowOfTwo: %i\nmod(A, DOMAIN_CELLS): %i\nA & (DOMAIN_CELLS-1): %i\n", test_tmp, isPowOfTwo, (A % DOMAIN_CELLS), (A & (DOMAIN_CELLS-1)) );
 	
-	delete gpu_DAPI_class;
-	delete cpu_class;
-	delete globalSize;
-	delete localSize;
-
-	//int ret_val = system("gedit &");
-
-	//printf("return val: %i\n", ret_val);
-
-	return 1;
+	return 0;
 }
 
 

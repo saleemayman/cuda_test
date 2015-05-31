@@ -37,24 +37,24 @@ EXECUTABLE		:= gpu_test
 MAINFILE	:=	main.cpp
 
 # c/c++ source files (compiled with $(CC))
-CCFILES		:=	classes.hpp 
+CCFILES		:=	classes.hpp CudaCompile.hpp
 
 # c/c++ source files (compiled with $(CXX))
 CXXFILES	:=	
 
 # cuda source files (compiled with $(NVCC))
-CUDAFILES	:=	cuda_wrapper.cu cuDriverWrapper.hpp #vecAdd.cu
+CUDAFILES	:= 	cuDriverWrapper.hpp  	#vecAdd.cu
 				
 
 ################################################################################
 # compilers and linkers
 ################################################################################
 
-CC				:= gcc
-CXX				:= g++
+CC				:= mpic++	#gcc
+CXX				:= mpic++	#g++
 # NVCC			:= nvcc
 NVCC			:= $(CUDAINSTALLPATH)/bin/nvcc
-LINKER			:= g++
+LINKER			:= mpic++ 	#g++
 # NVCCLINKER	:= nvcc
 NVCCLINKER		:= $(CUDAINSTALLPATH)/bin/nvcc
 

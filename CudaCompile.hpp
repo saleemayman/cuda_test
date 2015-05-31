@@ -44,7 +44,7 @@ public:
 		if (kernelMaxRegisters != 0)
 		{
 			command_string_stream << "-maxrregcount ";
-			kernelMaxRegisters = LOCAL_WORK_GROUP_SIZE;
+			kernelMaxRegisters = 16;
 			command_string_stream << kernelMaxRegisters;
 		}
 
@@ -52,10 +52,11 @@ public:
 		command_string_stream << "-D DEFAULTS=0 ";
 		command_string_stream << "-D DOMAIN_CELLS_X=5 ";
 		command_string_stream << "-D DOMAIN_CELLS_Y=1 ";
-		command_string_stream << "-D LOCAL_WORK_GROUP_SIZE=16 ";
+		command_string_stream << "-D LOCAL_WORK_GROUP_SIZE=";
+		command_string_stream << LOCAL_WORK_GROUP_SIZE;
 		//command_string_stream << " -D DATA_TYPE=1";
-		command_string_stream << "-D TYPE_FLOAT=1 ";
-		command_string_stream << "-arch=sm_";
+		command_string_stream << " -D TYPE_FLOAT=1 ";
+		command_string_stream << " -arch=sm_";
 		command_string_stream << compute_capability;
 		command_string_stream << "0 -m64 -I. -dc ";
 		command_string_stream << file_name;
@@ -78,9 +79,9 @@ public:
 								const char *file_name
 	)
 	{
-		std::cout << "Executing Compile command --> " << command << std::endl;
+		// std::cout << "Executing Compile command --> " << command << std::endl;
 		error = system(command.c_str());
-		std::cout << "Compile Successful, file --> " << file_name << std::endl;
+		// std::cout << "Compile Successful, file --> " << file_name << std::endl;
 
 		if (error != 0)
 		{
